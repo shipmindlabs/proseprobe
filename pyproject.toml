@@ -1,0 +1,41 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "proseprobe"
+version = "0.0.1"
+description = "Explainable scoring of how machine-like a text reads, with confidence bands and a non-native English guard."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [{ name = "Shipmind Labs", email = "hello@shipmindlabs.com" }]
+maintainers = [{ name = "Shipmind Labs", email = "hello@shipmindlabs.com" }]
+keywords = ["stylometry", "text-analysis", "ai-detection", "explainability"]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Text Processing :: Linguistic",
+  "Typing :: Typed",
+]
+dependencies = []
+
+[project.optional-dependencies]
+numpy = ["numpy>=1.26"]
+
+[project.urls]
+Homepage = "https://github.com/shipmindlabs/proseprobe"
+Repository = "https://github.com/shipmindlabs/proseprobe"
+Issues = "https://github.com/shipmindlabs/proseprobe/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/proseprobe"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
