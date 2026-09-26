@@ -10,8 +10,8 @@ library is willing to make on your behalf.
 
 ## Status
 
-Pre-alpha. The package installs and imports; the scoring pipeline is being built
-in the open.
+Pre-alpha. Feature extraction is in place; calibration, confidence bands and the
+non-native guard are being built in the open.
 
 ## Install
 
@@ -31,10 +31,43 @@ Python 3.11 or newer is required.
 ## Usage
 
 ```python
-import proseprobe
+from proseprobe import extract_features
 
-print(proseprobe.__version__)
+features = extract_features(text)
+
+print(features.value("burstiness"))
+
+moved = features["burstiness"]
+print(moved.description, moved.unit)
+for quote in moved.evidence:
+    print("  ", quote)
 ```
+
+Every feature carries its `name`, `value`, `unit`, a one-line `description` and,
+where the measurement points at specific prose, the `evidence` it was read from.
+`features.to_dict()` gives a plain name-to-number mapping.
+
+## Features
+
+Pacing and length: `word_count`, `sentence_count`, `paragraph_count`,
+`mean_sentence_length`, `sentence_length_stdev`, `sentence_length_cv`,
+`burstiness`, `sentence_length_range`, `short_sentence_ratio`,
+`long_sentence_ratio`, `mean_paragraph_sentences`.
+
+Lexicon: `function_word_ratio` (its `detail` map holds the per-word profile as a
+rate per 1000 words), `function_word_diversity`, `first_person_ratio`,
+`discourse_marker_rate`.
+
+Punctuation habits: `comma_rate`, `semicolon_rate`, `colon_rate`, `dash_rate`,
+`quote_rate`, `ellipsis_rate`, `question_ratio`, `exclamation_ratio`,
+`punctuation_diversity`.
+
+Layout: `list_item_ratio`, `list_item_length_cv`, `heading_ratio`.
+
+The authoritative definitions live in `proseprobe.FEATURES`, a tuple of
+`FeatureSpec` entries with a name, a unit and a description. A feature that is
+not in that tuple cannot be produced, so a missing measurement is a missing row
+rather than a silent gap.
 
 ## Development
 
