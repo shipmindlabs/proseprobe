@@ -10,8 +10,9 @@ library is willing to make on your behalf.
 
 ## Status
 
-Pre-alpha. Feature extraction is in place; calibration, confidence bands and the
-non-native guard are being built in the open.
+Pre-alpha. Feature extraction and the calibrated scale with its confidence bands
+are in place; the bundled reference distributions are provisional estimates and
+the non-native English guard is still being built in the open.
 
 ## Install
 
@@ -31,6 +32,25 @@ Python 3.11 or newer is required.
 ## Usage
 
 ```python
+from proseprobe import score
+
+result = score(text)
+
+print(result.summary())
+print(result.value, result.interval, result.band.name)
+
+for contribution in result.moved_by():
+    print(contribution.name, round(contribution.logit_shift, 3), contribution.direction())
+    for quote in contribution.evidence:
+        print("  ", quote)
+
+for note in result.notes:
+    print(note)
+```
+
+The measurements are available on their own:
+
+```python
 from proseprobe import extract_features
 
 features = extract_features(text)
@@ -45,7 +65,48 @@ for quote in moved.evidence:
 
 Every feature carries its `name`, `value`, `unit`, a one-line `description` and,
 where the measurement points at specific prose, the `evidence` it was read from.
-`features.to_dict()` gives a plain name-to-number mapping.
+`features.to_dict()` gives a plain name-to-number mapping, and `score_features()`
+scores a `FeatureSet` you already have.
+
+## The scale
+
+The scale runs from 0 to 1: 0 is the human end of the bundled reference
+distributions, 1 is the machine end. There is no boolean in the result and no
+threshold that turns the number into a verdict.
+
+A `Score` carries the point `value`; `low`, `high`, `interval` and `width` at the
+requested `confidence` (0.95 by default, so `score(text, confidence=0.99)` gives
+a wider band); the `band` the point falls in and every band the interval touches
+as `spanned_bands`; one `Contribution` per calibrated feature, largest shift
+first, with its distance from both reference means in standard deviations, a
+signed `logit_shift` and the quoted spans behind it; and `notes` in plain
+sentences about what limited the result.
+
+| band | range |
+| --- | --- |
+| very low | 0.0 to 0.2 |
+| low | 0.2 to 0.4 |
+| middle | 0.4 to 0.6 |
+| high | 0.6 to 0.8 |
+| very high | 0.8 to 1.0 |
+
+The shifts sum to the log-odds behind `value`, so the arithmetic is checkable.
+An interval spanning three or more bands means the point value carries little
+information, and it says so in `notes`.
+
+Short text is handled by saying so rather than by guessing. Each reference row
+declares the least text it needs, rows under that minimum are skipped and named
+in `notes`, the interval is widened below 250 words, and a text where nothing can
+be measured returns the prior of 0.5 across the full 0..1 interval.
+
+## Reference distributions
+
+`proseprobe.REFERENCES` is the table the scale is calibrated against: one row per
+indicator feature with its mean and standard deviation in each reference
+population, a weight, the minimum text it needs and a note on what it reflects.
+`proseprobe.REFERENCE_NOTE` states their provenance. Sixteen of the twenty-seven
+measured features have a row; the rest are reported but do not move the score, so
+an uncalibrated feature is a missing row rather than a hidden term.
 
 ## Features
 
