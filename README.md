@@ -10,9 +10,10 @@ library is willing to make on your behalf.
 
 ## Status
 
-Pre-alpha. Feature extraction and the calibrated scale with its confidence bands
-are in place; the bundled reference distributions are provisional estimates and
-the non-native English guard is still being built in the open.
+Pre-alpha. Feature extraction, the calibrated scale with its confidence bands and
+the quoted explanation are in place; the bundled reference distributions are
+provisional estimates and the non-native English guard is still being built in
+the open.
 
 ## Install
 
@@ -46,6 +47,20 @@ for contribution in result.moved_by():
 
 for note in result.notes:
     print(note)
+```
+
+The same result told as sentences, with one short quote under each feature:
+
+```python
+from proseprobe import explain, score
+
+explanation = explain(score(text))
+
+print(explanation)
+
+for reason in explanation.reasons:
+    print(reason.name, reason.magnitude.name, reason.direction)
+    print("  ", reason.excerpt)
 ```
 
 The measurements are available on their own:
@@ -98,6 +113,28 @@ Short text is handled by saying so rather than by guessing. Each reference row
 declares the least text it needs, rows under that minimum are skipped and named
 in `notes`, the interval is widened below 250 words, and a text where nothing can
 be measured returns the prior of 0.5 across the full 0..1 interval.
+
+## The explanation
+
+`explain(result)` restates a `Score` in sentences. Each feature that moved the
+score becomes a `Reason` with its measured value and unit, both reference means,
+the signed `logit_shift` the scale already reported, that shift's `share` of the
+total movement, a named `magnitude`, the reference it pulled `direction`, and one
+short quoted `excerpt` from the prose the measurement was read from. A feature
+that points at no particular span says so instead of quoting something unrelated.
+
+| magnitude | shift in log-odds |
+| --- | --- |
+| negligible | 0.00 to 0.05 |
+| slight | 0.05 to 0.15 |
+| moderate | 0.15 to 0.40 |
+| strong | 0.40 and above |
+
+`explanation.text()`, which `str()` also gives you, renders the headline, one
+block per reason and the score's notes. `explain(result, limit=3)` keeps the
+three largest shifts and says how many smaller ones it left out, and
+`excerpt_limit` sets how long a quote may run. The explanation performs no
+arithmetic of its own, so it cannot disagree with the score it describes.
 
 ## Reference distributions
 
