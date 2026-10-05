@@ -6,6 +6,10 @@ interval, the bands that interval touches, the per-feature shifts that produced
 it, and a note wherever the text was too short to measure something. Nothing
 here returns a boolean: a number with a stated interval can be argued with, a
 yes cannot.
+
+When the non-native English guard raises a caution, the evidence is shrunk
+toward the prior and the interval is widened, so the guard can only make a score
+less certain, never larger.
 """
 
 from __future__ import annotations
@@ -15,6 +19,7 @@ from dataclasses import dataclass
 from statistics import NormalDist
 
 from .features import FeatureSet, extract_features
+from .guard import UNEXAMINED, Guard, inspect_language
 from .reference import REFERENCES, Reference
 
 __all__ = [
@@ -32,6 +37,7 @@ EVIDENCE_CEILING = 2.5
 LOGIT_GAIN = 2.6
 IRREDUCIBLE_SPREAD = 0.18
 STABLE_WORDS = 250
+GUARD_WIDENING = 2.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,6 +94,7 @@ class Score:
     band: Band
     spanned_bands: tuple[Band, ...]
     contributions: tuple[Contribution, ...]
+    guard: Guard
     notes: tuple[str, ...]
 
     @property
@@ -105,20 +112,33 @@ class Score:
         return self.contributions[:limit]
 
     def summary(self) -> str:
-        """One line: point value, interval, confidence level and band."""
-        return (
+        """One line: point value, interval, confidence level, band and caution."""
+        line = (
             f"{self.value:.2f} of 1.00 ({self.low:.2f} to {self.high:.2f} "
             f"at {self.confidence:.0%} confidence, band '{self.band.name}')"
         )
+        if self.guard.strength > 0.0:
+            line += (
+                f"; {self.guard.caution.name} caution from the non-native English guard"
+            )
+        return line
 
 
 def score(text: str, *, confidence: float = DEFAULT_CONFIDENCE) -> Score:
     """Place ``text`` on the calibrated scale with a confidence band."""
-    return score_features(extract_features(text), confidence=confidence)
+    return score_features(
+        extract_features(text), confidence=confidence, guard=inspect_language(text)
+    )
 
 
-def score_features(features: FeatureSet, *, confidence: float = DEFAULT_CONFIDENCE) -> Score:
+def score_features(
+    features: FeatureSet,
+    *,
+    confidence: float = DEFAULT_CONFIDENCE,
+    guard: Guard | None = None,
+) -> Score:
     """Place an already measured ``FeatureSet`` on the calibrated scale."""
+    language = UNEXAMINED if guard is None else guard
     word_count = features.value("word_count")
     sentence_count = features.value("sentence_count")
 
@@ -136,6 +156,7 @@ def score_features(features: FeatureSet, *, confidence: float = DEFAULT_CONFIDEN
         notes.append("Not counted, the text is shorter than they need: " + ", ".join(deferred) + ".")
     if not measured:
         notes.append("No calibrated feature could be measured, so the scale reports its prior.")
+        notes.extend(language.notes)
         return Score(
             value=0.5,
             low=0.0,
@@ -144,18 +165,22 @@ def score_features(features: FeatureSet, *, confidence: float = DEFAULT_CONFIDEN
             band=_band_at(0.5),
             spanned_bands=BANDS,
             contributions=(),
+            guard=language,
             notes=tuple(notes),
         )
 
+    damping = 1.0 - language.strength
     weight = sum(reference.weight for reference, _ in measured)
     mean_evidence = sum(reference.weight * ratio for reference, ratio in measured) / weight
-    deviation = NormalDist().inv_cdf(0.5 + confidence / 2.0) * _spread(
-        measured, mean_evidence, weight, word_count
+    evidence = mean_evidence * damping
+    spread = _spread(measured, mean_evidence, weight, word_count) * (
+        1.0 + GUARD_WIDENING * language.strength
     )
+    deviation = NormalDist().inv_cdf(0.5 + confidence / 2.0) * spread
 
-    value = _logistic(LOGIT_GAIN * mean_evidence)
-    low = _logistic(LOGIT_GAIN * (mean_evidence - deviation))
-    high = _logistic(LOGIT_GAIN * (mean_evidence + deviation))
+    value = _logistic(LOGIT_GAIN * evidence)
+    low = _logistic(LOGIT_GAIN * (evidence - deviation))
+    high = _logistic(LOGIT_GAIN * (evidence + deviation))
     spanned = _bands_spanned(low, high)
 
     if word_count < STABLE_WORDS:
@@ -167,6 +192,12 @@ def score_features(features: FeatureSet, *, confidence: float = DEFAULT_CONFIDEN
         notes.append(
             f"The interval covers {len(spanned)} bands; read the point value as indicative only."
         )
+    if language.strength > 0.0:
+        notes.append(
+            f"The non-native English guard kept {damping:.0%} of the measured evidence and "
+            "widened the interval, pulling the score toward the middle of the scale."
+        )
+    notes.extend(language.notes)
 
     return Score(
         value=value,
@@ -175,13 +206,17 @@ def score_features(features: FeatureSet, *, confidence: float = DEFAULT_CONFIDEN
         confidence=confidence,
         band=_band_at(value),
         spanned_bands=spanned,
-        contributions=_contributions(features, measured, weight),
+        contributions=_contributions(features, measured, weight, damping),
+        guard=language,
         notes=tuple(notes),
     )
 
 
 def _contributions(
-    features: FeatureSet, measured: list[tuple[Reference, float]], weight: float
+    features: FeatureSet,
+    measured: list[tuple[Reference, float]],
+    weight: float,
+    damping: float,
 ) -> tuple[Contribution, ...]:
     collected: list[Contribution] = []
     for reference, ratio in measured:
@@ -196,7 +231,7 @@ def _contributions(
                 machine_mean=reference.machine_mean,
                 z_human=(feature.value - reference.human_mean) / reference.human_stdev,
                 z_machine=(feature.value - reference.machine_mean) / reference.machine_stdev,
-                logit_shift=LOGIT_GAIN * reference.weight * ratio / weight,
+                logit_shift=LOGIT_GAIN * reference.weight * ratio * damping / weight,
                 evidence=feature.evidence,
             )
         )
