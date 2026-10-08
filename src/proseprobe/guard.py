@@ -8,10 +8,11 @@ trusted.
 
 Every signal is a row in ``SIGNALS`` with the value where it starts to count,
 the value where it counts fully, the weight it carries and the least text it
-needs, so the guard's own arithmetic can be checked. The scale uses the result
-to shrink its evidence toward the prior and widen its interval, so a caution can
-only make a score less certain, never larger. The guard names no language and
-makes no claim about the author.
+needs, and the guard reports the word and sentence count the rates were computed
+over, so its own arithmetic can be checked. The scale uses the result to shrink
+its evidence toward the prior and widen its interval, so a caution can only make
+a score less certain, never larger. The guard names no language and makes no
+claim about the author.
 """
 
 from __future__ import annotations
@@ -196,10 +197,12 @@ class Reading:
 
 @dataclass(frozen=True, slots=True)
 class Guard:
-    """How far the score should be trusted, and which patterns said so."""
+    """How far the score should be trusted, which patterns said so, over how much text."""
 
     strength: float
     caution: Caution
+    words: int
+    sentences: int
     readings: tuple[Reading, ...]
     deferred: tuple[str, ...]
     notes: tuple[str, ...]
@@ -215,10 +218,15 @@ class Guard:
 
     def summary(self) -> str:
         """One line: the caution, the reliability left, and what raised it."""
+        if not self.words:
+            return "Non-native English guard: did not run, it was given no prose to read."
         fired = self.fired()
         if not fired:
             if not self.readings:
-                return "Non-native English guard: too little text to weigh any signal."
+                return (
+                    f"Non-native English guard: {self.words} words is too little text to "
+                    "weigh any signal."
+                )
             return "Non-native English guard: nothing stood out, reliability 100%."
         return (
             f"Non-native English guard: {self.caution.name} caution at "
@@ -231,6 +239,8 @@ class Guard:
 UNEXAMINED = Guard(
     strength=0.0,
     caution=CAUTIONS[0],
+    words=0,
+    sentences=0,
     readings=(),
     deferred=tuple(signal.name for signal in SIGNALS),
     notes=(
@@ -294,12 +304,16 @@ def inspect_language(text: str) -> Guard:
     if deferred:
         notes.append(
             "The non-native English guard could not weigh these, the text is shorter than "
-            "they need: " + ", ".join(deferred) + "."
+            f"they need ({word_count} words, {sentence_count} sentences): "
+            + ", ".join(deferred)
+            + "."
         )
 
     return Guard(
         strength=strength,
         caution=caution,
+        words=word_count,
+        sentences=sentence_count,
         readings=tuple(readings),
         deferred=tuple(deferred),
         notes=tuple(notes),

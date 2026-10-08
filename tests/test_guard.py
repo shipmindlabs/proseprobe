@@ -3,6 +3,7 @@ import dataclasses
 from proseprobe import (
     CAUTIONS,
     SIGNALS,
+    UNEXAMINED,
     explain,
     extract_features,
     inspect_language,
@@ -78,6 +79,12 @@ def test_fired_signals_quote_the_prose_they_were_read_from():
             assert quote.rstrip("\u2026") in collapsed
 
 
+def test_the_guard_reports_the_text_the_rates_were_read_over():
+    guard = inspect_language(NON_NATIVE)
+    assert guard.words > 120
+    assert guard.sentences > 6
+
+
 def test_the_guard_damps_the_score_instead_of_inflating_it():
     damped = score(NON_NATIVE)
     undamped = score_features(extract_features(NON_NATIVE))
@@ -100,6 +107,8 @@ def test_scoring_from_features_alone_says_the_guard_did_not_run():
     result = score_features(extract_features(NON_NATIVE))
     assert result.guard.strength == 0.0
     assert any("did not run" in note for note in result.notes)
+    assert UNEXAMINED.words == 0
+    assert "did not run" in UNEXAMINED.summary()
 
 
 def test_short_text_defers_every_signal_and_says_so():
@@ -108,6 +117,7 @@ def test_short_text_defers_every_signal_and_says_so():
     assert guard.readings == ()
     assert set(guard.deferred) == {signal.name for signal in SIGNALS}
     assert any("shorter" in note for note in guard.notes)
+    assert "too little text" in guard.summary()
 
 
 def test_every_signal_row_is_documented_and_ramped():
