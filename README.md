@@ -11,9 +11,9 @@ library is willing to make on your behalf.
 ## Status
 
 Pre-alpha. Feature extraction, the calibrated scale with its confidence bands,
-the quoted explanation and the non-native English guard are in place; the bundled
-reference distributions and the guard's thresholds are provisional estimates
-carried in source form so they can be read and replaced.
+the quoted explanation, the non-native English guard and batch scoring are in
+place; the bundled reference distributions and the guard's thresholds are
+provisional estimates carried in source form so they can be read and replaced.
 
 ## Install
 
@@ -199,6 +199,52 @@ the explanation. `explain(result, limit=3)` keeps the three largest shifts and
 says how many smaller ones it left out, and `excerpt_limit` sets how long a quote
 may run. The explanation performs no arithmetic of its own, so it cannot disagree
 with the score it describes.
+
+## Batch scoring
+
+A directory or a list of documents is scored in one pass, and every document
+keeps its own report.
+
+```python
+from proseprobe import score_directory, write_reports
+
+batch = score_directory("corpus")
+
+print(batch.headline())
+
+for document in batch.documents:
+    print(document.name, round(document.score.value, 2), document.score.band.name)
+
+write_reports(batch, "reports")
+```
+
+`score_directory(path)` reads `*.txt`, `*.md` and `*.markdown` below `path`,
+which `patterns` overrides, and names each document by its path relative to the
+directory. `score_paths([...])` takes the files you name, and
+`score_documents({"name": text})` takes prose you already hold. All three accept
+the same `confidence` as `score()` and return a `BatchReport`.
+
+`write_reports(batch, directory)` writes one `<document>.json` per document plus
+`summary.json`, and returns the paths it wrote. Nothing is written unless you ask
+for it: `document.to_dict()` and `batch.summary()` return JSON-ready
+dictionaries, and `to_json()` renders them.
+
+A document report carries the score whole: the point value, the interval at its
+confidence, the band, every contribution with its reference means, its signed
+shift and the spans it was read from, the guard with each of its readings, the
+notes, and the explanation as text. Nothing is summarised away, so a report can
+be argued with on its own.
+
+The summary states a distribution: how many documents were scored and over how
+many words, the mean, median, lowest and highest value with the mean interval
+width, how many documents fell in each band and each caution, the features that
+moved the scores most by mean absolute shift, one line per document pointing at
+its report file, the files that could not be read as UTF-8 text, and notes in
+plain sentences. It ranks nothing and holds no threshold, so a batch of numbers
+does not become a batch of verdicts.
+
+A file that cannot be read is named in `batch.unread` with the reason, and the
+rest of the batch is scored anyway.
 
 ## Reference distributions
 
