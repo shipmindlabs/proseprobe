@@ -1,9 +1,9 @@
 """Batch scoring with JSON reports.
 
 A batch is a directory or a list of documents. Every document keeps its own
-report carrying the whole score: the point value with its interval and band,
-every contribution with the prose it was read from, the guard that was applied,
-the notes, and the explanation in sentences.
+report in the structure ``report()`` returns: the point value with its interval
+and band, every contribution with the prose it was read from, the guard that was
+applied, the notes, and the explanation in sentences.
 
 The batch gets one summary. It counts how the values fall across the bands and
 the cautions, names the features that moved them most, and lists the files it
@@ -21,14 +21,13 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
-from .calibrate import BANDS, DEFAULT_CONFIDENCE, Band, Contribution, Score, score
-from .explain import explain
-from .guard import CAUTIONS, Caution, Guard, Reading
+from .calibrate import BANDS, DEFAULT_CONFIDENCE, Score, score
+from .guard import CAUTIONS
+from .report import DIGITS, REPORT_VERSION, report_score
 from .segment import split_words
 
 __all__ = [
     "DEFAULT_PATTERNS",
-    "REPORT_VERSION",
     "SUMMARY_FILENAME",
     "BatchReport",
     "DocumentReport",
@@ -39,11 +38,9 @@ __all__ = [
     "write_reports",
 ]
 
-REPORT_VERSION = 1
 SUMMARY_FILENAME = "summary.json"
 DEFAULT_PATTERNS: tuple[str, ...] = ("*.txt", "*.md", "*.markdown")
 WIDE_INTERVAL = 0.5
-DIGITS = 6
 
 _UNSAFE_RE = re.compile(r"[^A-Za-z0-9._-]+")
 
@@ -72,14 +69,7 @@ class DocumentReport:
 
     def to_dict(self) -> dict[str, object]:
         """The whole score as a JSON-ready dictionary, explanation included."""
-        return {
-            "report_version": REPORT_VERSION,
-            "name": self.name,
-            "path": self.path,
-            "words": self.words,
-            "score": _score_dict(self.score),
-            "explanation": explain(self.score).text(),
-        }
+        return report_score(self.score, name=self.name, path=self.path, words=self.words)
 
     def to_json(self, *, indent: int = 2) -> str:
         """The report rendered as JSON text."""
@@ -282,80 +272,6 @@ def _report(name: str, path: str, text: str, confidence: float) -> DocumentRepor
         words=len(split_words(text)),
         score=score(text, confidence=confidence),
     )
-
-
-def _score_dict(result: Score) -> dict[str, object]:
-    return {
-        "summary": result.summary(),
-        "value": _round(result.value),
-        "interval": {
-            "low": _round(result.low),
-            "high": _round(result.high),
-            "width": _round(result.width),
-            "confidence": result.confidence,
-        },
-        "band": _range_dict(result.band),
-        "spanned_bands": [band.name for band in result.spanned_bands],
-        "contributions": [
-            _contribution_dict(contribution) for contribution in result.contributions
-        ],
-        "guard": _guard_dict(result.guard),
-        "notes": list(result.notes),
-    }
-
-
-def _range_dict(named: Band | Caution) -> dict[str, object]:
-    return {
-        "name": named.name,
-        "low": named.low,
-        "high": named.high,
-        "description": named.description,
-    }
-
-
-def _contribution_dict(contribution: Contribution) -> dict[str, object]:
-    return {
-        "name": contribution.name,
-        "value": _round(contribution.value),
-        "unit": contribution.unit,
-        "description": contribution.description,
-        "human_mean": contribution.human_mean,
-        "machine_mean": contribution.machine_mean,
-        "z_human": _round(contribution.z_human),
-        "z_machine": _round(contribution.z_machine),
-        "logit_shift": _round(contribution.logit_shift),
-        "direction": contribution.direction(),
-        "evidence": list(contribution.evidence),
-    }
-
-
-def _guard_dict(guard: Guard) -> dict[str, object]:
-    return {
-        "summary": guard.summary(),
-        "strength": _round(guard.strength),
-        "reliability": _round(guard.reliability),
-        "caution": _range_dict(guard.caution),
-        "words": guard.words,
-        "sentences": guard.sentences,
-        "readings": [_reading_dict(reading) for reading in guard.readings],
-        "deferred": list(guard.deferred),
-        "notes": list(guard.notes),
-    }
-
-
-def _reading_dict(reading: Reading) -> dict[str, object]:
-    return {
-        "name": reading.name,
-        "sentence": reading.sentence(),
-        "value": _round(reading.value),
-        "unit": reading.unit,
-        "note": reading.note,
-        "threshold": reading.threshold,
-        "saturation": reading.saturation,
-        "weight": reading.weight,
-        "strength": _round(reading.strength),
-        "evidence": list(reading.evidence),
-    }
 
 
 def _distribution(values: list[float], widths: list[float]) -> dict[str, object]:

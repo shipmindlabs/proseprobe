@@ -2,7 +2,6 @@
 
 from .batch import (
     DEFAULT_PATTERNS,
-    REPORT_VERSION,
     SUMMARY_FILENAME,
     BatchReport,
     DocumentReport,
@@ -47,6 +46,7 @@ from .guard import (
     inspect_language,
 )
 from .reference import REFERENCE_INDEX, REFERENCE_NOTE, REFERENCES, Reference
+from .report import REPORT_VERSION, report, report_score
 from .segment import (
     Line,
     LineKind,
@@ -102,6 +102,8 @@ __all__ = [
     "explain",
     "extract_features",
     "inspect_language",
+    "report",
+    "report_score",
     "score",
     "score_directory",
     "score_documents",

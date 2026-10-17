@@ -14,6 +14,7 @@ maintainers = [{ name = "Shipmind Labs", email = "hello@shipmindlabs.com" }]
 keywords = ["stylometry", "text-analysis", "ai-detection", "explainability"]
 classifiers = [
   "Development Status :: 2 - Pre-Alpha",
+  "Environment :: Console",
   "Intended Audience :: Developers",
   "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3",
@@ -27,6 +28,9 @@ dependencies = []
 
 [project.optional-dependencies]
 numpy = ["numpy>=1.26"]
+
+[project.scripts]
+probe = "proseprobe.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/shipmindlabs/proseprobe"
