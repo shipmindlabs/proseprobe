@@ -11,15 +11,18 @@ library is willing to make on your behalf.
 ## Status
 
 Pre-alpha. Feature extraction, the calibrated scale with its confidence bands,
-the quoted explanation, the non-native English guard and batch scoring are in
-place; the bundled reference distributions and the guard's thresholds are
-provisional estimates carried in source form so they can be read and replaced.
+the quoted explanation, the non-native English guard, the one-call report, the
+command line and batch scoring are in place; the bundled reference distributions
+and the guard's thresholds are provisional estimates carried in source form so
+they can be read and replaced.
 
 ## Install
 
 ```bash
 pip install proseprobe
 ```
+
+Installing also puts a `probe` command on your path.
 
 The core runs on the standard library. NumPy is optional and only speeds up the
 numeric paths:
@@ -200,6 +203,66 @@ says how many smaller ones it left out, and `excerpt_limit` sets how long a quot
 may run. The explanation performs no arithmetic of its own, so it cannot disagree
 with the score it describes.
 
+## One report
+
+`report(text)` is the whole library in one call: it measures the text, places it
+on the scale, runs the guard, writes the explanation and returns a JSON-ready
+dictionary.
+
+```python
+import json
+
+from proseprobe import report
+
+print(json.dumps(report(text, name="essay.txt"), indent=2))
+```
+
+A report carries a `report_version`, the `name` and `path` it was given, the
+`words` it was scored over, the `score` whole — the point value, the interval at
+its confidence, the band and every band the interval touches, each contribution
+with its reference means, its signed shift and the spans it was read from, the
+guard with each of its readings, and the notes — and the `explanation` as text.
+Nothing is summarised away, so a report can be argued with on its own.
+
+It accepts the same `confidence` as `score()` and the same `limit` and
+`excerpt_limit` as `explain()`. `report_score(result)` renders a `Score` already
+in hand in the same structure.
+
+There is one report structure and three ways to reach it: this function, the
+command line, which prints it unchanged, and batch scoring, which puts it under
+each document. `report(text, name="a.txt")` and that document's entry in a batch
+are the same dictionary.
+
+## Command line
+
+```bash
+probe essay.txt
+probe essay.txt --json
+cat essay.txt | probe
+```
+
+Without `--json` the report is printed as sentences: the headline, one block per
+feature with its quoted excerpt, the notes, and the guard's line. With `--json`
+the dictionary `report()` returns is printed as it stands. The command renders
+what the library gives it and computes nothing of its own, so the two cannot
+disagree.
+
+| option | effect |
+| --- | --- |
+| `--json` | print the report as JSON instead of sentences |
+| `--confidence LEVEL` | confidence level for the interval (default 0.95) |
+| `--limit N` | keep only the N largest feature shifts in the explanation |
+| `--excerpt-limit CHARS` | how long a quoted excerpt may run (default 120) |
+| `--indent N` | JSON indentation; `0` prints one line |
+| `--version` | print the version |
+
+Several files can be named at once and each keeps its own report, so `--json`
+prints one object for a single file and a list, in the order the files were
+given, for more than one. With no file, or with `-`, the text is read from
+standard input. A file that cannot be read is named on standard error, the rest
+are scored anyway, and the exit status is 1. `python -m proseprobe` runs the same
+command.
+
 ## Batch scoring
 
 A directory or a list of documents is scored in one pass, and every document
@@ -229,11 +292,8 @@ the same `confidence` as `score()` and return a `BatchReport`.
 for it: `document.to_dict()` and `batch.summary()` return JSON-ready
 dictionaries, and `to_json()` renders them.
 
-A document report carries the score whole: the point value, the interval at its
-confidence, the band, every contribution with its reference means, its signed
-shift and the spans it was read from, the guard with each of its readings, the
-notes, and the explanation as text. Nothing is summarised away, so a report can
-be argued with on its own.
+A document report carries the score whole, in the structure `report()` returns,
+so nothing is summarised away and a report can be argued with on its own.
 
 The summary states a distribution: how many documents were scored and over how
 many words, the mean, median, lowest and highest value with the mean interval
