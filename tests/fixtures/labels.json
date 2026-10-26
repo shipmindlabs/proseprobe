@@ -1,0 +1,41 @@
+{
+  "note": "A small labelled set: public-domain human prose and prose written in the default register of an instruction-tuned assistant. Each row declares the stretch of the 0..1 scale the text is expected to fall in, not a point value, so a fixture fails on drift rather than on rounding. Replace REFERENCES and these ranges together: a recalibration is expected to move them.",
+  "fixtures": [
+    {
+      "file": "human_austen_pride_and_prejudice.txt",
+      "label": "human",
+      "source": "Jane Austen, Pride and Prejudice (1813), opening of chapter 1; public domain.",
+      "expect": {"low": 0.0, "high": 0.45, "max_guard_strength": 0.35}
+    },
+    {
+      "file": "human_melville_moby_dick.txt",
+      "label": "human",
+      "source": "Herman Melville, Moby-Dick (1851), opening of chapter 1; public domain.",
+      "expect": {"low": 0.0, "high": 0.55, "max_guard_strength": 0.35}
+    },
+    {
+      "file": "human_twain_huckleberry_finn.txt",
+      "label": "human",
+      "source": "Mark Twain, Adventures of Huckleberry Finn (1884), opening of chapter 1; public domain.",
+      "expect": {"low": 0.0, "high": 0.45, "max_guard_strength": 0.35}
+    },
+    {
+      "file": "generated_remote_work.txt",
+      "label": "generated",
+      "source": "Written for this fixture set in the default expository register of an instruction-tuned assistant: even pacing, stacked connectives, no first person.",
+      "expect": {"low": 0.45, "high": 1.0, "max_guard_strength": 0.35}
+    },
+    {
+      "file": "generated_sleep_hygiene.txt",
+      "label": "generated",
+      "source": "Written for this fixture set in the default expository register of an instruction-tuned assistant: hedged advice, uniform paragraphs, no quoted material.",
+      "expect": {"low": 0.45, "high": 1.0, "max_guard_strength": 0.35}
+    },
+    {
+      "file": "generated_data_quality.txt",
+      "label": "generated",
+      "source": "Written for this fixture set in the default expository register of an instruction-tuned assistant: comma-separated clauses, summarising close, no first person.",
+      "expect": {"low": 0.45, "high": 1.0, "max_guard_strength": 0.35}
+    }
+  ]
+}
