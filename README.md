@@ -129,6 +129,81 @@ declares the least text it needs, rows under that minimum are skipped and named
 in `notes`, the interval is widened below 250 words, and a text where nothing can
 be measured returns the prior of 0.5 across the full 0..1 interval.
 
+## Limits and forbidden uses
+
+The score measures style, not authorship. It states how close a text's pacing,
+lexicon and punctuation habits sit to each of two reference distributions, and
+nothing in the method observes who wrote the text, what tool was open while it
+was written, or whether a draft was revised afterwards. A high score means the
+prose carries habits that are common in the machine reference population and
+uncommon in the human one. Style is imitable, teachable, and often just the
+voice of a genre, so that is weaker evidence than it looks.
+
+Four properties of the method set the ceiling on what a score can support.
+
+- Base rates are not in the result. The scale compares one text with two
+  populations; it is never told how much of the corpus you are scoring was
+  machine-written. Where machine prose is rare, most of the texts that land high
+  on the scale are still human, and no setting inside the library can correct
+  for that, because the library does not know the mix.
+- Style moves under light editing, in both directions. Reordering sentences,
+  cutting connectives or varying sentence length pulls a score down; asking a
+  model for uneven pacing pulls it down too. Anyone who wants a particular score
+  can have one, so a low score is not a clearance and a high score is not a
+  confession.
+- The references are provisional. `REFERENCE_NOTE` says as much in the package:
+  coarse summary statistics, not a fitted model, bundled in source form so they
+  can be read and replaced. A score is reproducible and auditable; it is not
+  validated against a corpus large enough to carry a decision about anyone.
+- Whole genres sit near the machine end for reasons of their own: edited
+  corporate prose, technical documentation, translated text, writing in a second
+  language, and anything written to a template. The scale cannot tell a house
+  style from a model.
+
+So a score must never be the sole evidence for a decision about a person, and
+there are uses it is unfit for at any confidence level. These are design limits,
+not gaps waiting to be closed:
+
+- Academic misconduct findings, grading penalties, or any disciplinary outcome.
+- Hiring, admissions, promotion or dismissal decisions.
+- Moderation that removes content, withholds payment or suspends an account.
+- Any claim about a named author, an identifiable group or a language community.
+- Any decision that is irreversible, unappealable, or invisible to the person it
+  affects.
+
+What a score is good for is reading a text more closely than you otherwise
+would: deciding where to look first in a large corpus, opening a conversation
+with an author about a draft rather than closing one, watching a corpus drift
+over time, and studying the features themselves. In each of those the score is
+one input among others, and the person it concerns can see it and answer it.
+
+The library hands you no threshold and no boolean, in the result, the report or
+the command line, because the step from a number to a verdict is where the harm
+happens and it is not a step this library takes on your behalf. Writing
+`result.value > 0.7` in your own code restores the verdict the scale declined to
+make, and the responsibility that comes with it.
+
+Read a result as the whole of what it carries: the interval rather than the
+point value, every band the interval touches, the notes on what limited it, and
+the quoted spans behind each contribution. An interval across three or more
+bands means the point value carries little information, and the notes say so.
+Below a few hundred words there is little to measure, and the notes say that
+too.
+
+The failure this library takes most seriously is not symmetric. The features
+that separate the reference populations also separate first-language writers
+from second-language ones: measured pacing, textbook connectives and a sparing
+use of contractions are taught as careful writing and are also what default
+model prose looks like. Left uncorrected, a score of machine-likeness doubles as
+a score of foreign authorship, and the people it misreads are the least likely
+to be in a position to appeal it. The guard described next measures those
+patterns and spends them on caution only: the scale keeps `1 - strength` of the
+measured evidence, which pulls the point value toward the prior of 0.5, and
+widens the interval in proportion, so a caution can never raise a score. It
+names no language and makes no claim about the author. It is also not a shield
+against the limits above: a text with no caution is still a text whose style was
+measured and whose authorship was not.
+
 ## The non-native English guard
 
 Detectors of machine-like prose systematically over-score competent non-native
