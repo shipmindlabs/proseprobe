@@ -46,7 +46,7 @@ from .guard import (
     inspect_language,
 )
 from .reference import REFERENCE_INDEX, REFERENCE_NOTE, REFERENCES, Reference
-from .report import REPORT_VERSION, report, report_score
+from .report import REPORT_VERSION, calibration_fingerprint, report, report_score
 from .segment import (
     Line,
     LineKind,
@@ -99,6 +99,7 @@ __all__ = [
     "Span",
     "Unread",
     "__version__",
+    "calibration_fingerprint",
     "explain",
     "extract_features",
     "inspect_language",

@@ -1,6 +1,17 @@
+import dataclasses
 import json
+import re
 
-from proseprobe import REPORT_VERSION, report, report_score, score, score_documents
+from proseprobe import (
+    REFERENCE_NOTE,
+    REPORT_VERSION,
+    calibrate,
+    calibration_fingerprint,
+    report,
+    report_score,
+    score,
+    score_documents,
+)
 
 EVEN = (
     "The system works well. The system runs fast. The system stays calm. "
@@ -57,3 +68,27 @@ def test_a_text_below_every_minimum_reports_the_prior():
     assert payload["score"]["value"] == 0.5
     assert payload["score"]["contributions"] == []
     assert any("prior" in note for note in payload["score"]["notes"])
+
+
+def test_the_fingerprint_is_a_sha256_digest_in_lowercase_hex():
+    assert re.fullmatch(r"[0-9a-f]{64}", calibration_fingerprint())
+
+
+def test_the_same_tables_give_one_fingerprint_everywhere():
+    document = report(EVEN, name="even.txt")
+    summary = score_documents([("even.txt", EVEN)]).summary()
+    assert calibration_fingerprint() == calibration_fingerprint()
+    assert document["calibration"] == {
+        "fingerprint": calibration_fingerprint(),
+        "note": REFERENCE_NOTE,
+    }
+    assert summary["calibration"] == document["calibration"]
+
+
+def test_a_replaced_calibration_table_changes_the_fingerprint(monkeypatch):
+    before = calibration_fingerprint()
+    first = calibrate.REFERENCES[0]
+    altered = (dataclasses.replace(first, weight=first.weight + 0.1),) + calibrate.REFERENCES[1:]
+    monkeypatch.setattr("proseprobe.calibrate.REFERENCES", altered)
+    assert calibration_fingerprint() != before
+    assert report(EVEN)["calibration"]["fingerprint"] == calibration_fingerprint()

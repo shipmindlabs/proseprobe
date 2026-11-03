@@ -2,22 +2,46 @@
 
 A report carries the whole score: the point value with its interval and band,
 every contribution with the prose it was read from, the guard that was applied,
-the notes, and the explanation in sentences. Batch scoring puts the same
+the notes, and the explanation in sentences. It also carries a fingerprint of
+the calibration tables that produced it, so two reports can be compared knowing
+whether they were scored against the same tables. Batch scoring puts the same
 structure under each document and the command line prints it unchanged, so a
 report has one shape wherever it came from.
 """
 
 from __future__ import annotations
 
+import hashlib
+import json
+from dataclasses import asdict
+
+from . import calibrate, guard, reference
 from .calibrate import DEFAULT_CONFIDENCE, Band, Contribution, Score, score
 from .explain import EXCERPT_LIMIT, explain
 from .guard import Caution, Guard, Reading
 from .segment import split_words
 
-__all__ = ["REPORT_VERSION", "report", "report_score"]
+__all__ = ["REPORT_VERSION", "calibration_fingerprint", "report", "report_score"]
 
-REPORT_VERSION = 1
+REPORT_VERSION = 2
 DIGITS = 6
+
+
+def calibration_fingerprint() -> str:
+    """The sha256 digest of the calibration tables as they stand at this call."""
+    tables = {
+        "references": [asdict(row) for row in calibrate.REFERENCES],
+        "signals": [asdict(row) for row in guard.SIGNALS],
+        "bands": [asdict(row) for row in calibrate.BANDS],
+        "cautions": [asdict(row) for row in guard.CAUTIONS],
+        "evidence_ceiling": calibrate.EVIDENCE_CEILING,
+        "logit_gain": calibrate.LOGIT_GAIN,
+        "irreducible_spread": calibrate.IRREDUCIBLE_SPREAD,
+        "stable_words": calibrate.STABLE_WORDS,
+        "guard_widening": calibrate.GUARD_WIDENING,
+    }
+    canonical = json.dumps(tables, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def report(
@@ -52,12 +76,17 @@ def report_score(
     """Render a ``Score`` already in hand in the same report structure."""
     return {
         "report_version": REPORT_VERSION,
+        "calibration": _calibration(),
         "name": name,
         "path": path,
         "words": words,
         "score": _score_dict(result),
         "explanation": explain(result, limit=limit, excerpt_limit=excerpt_limit).text(),
     }
+
+
+def _calibration() -> dict[str, object]:
+    return {"fingerprint": calibration_fingerprint(), "note": reference.REFERENCE_NOTE}
 
 
 def _score_dict(result: Score) -> dict[str, object]:
@@ -105,17 +134,17 @@ def _contribution_dict(contribution: Contribution) -> dict[str, object]:
     }
 
 
-def _guard_dict(guard: Guard) -> dict[str, object]:
+def _guard_dict(applied: Guard) -> dict[str, object]:
     return {
-        "summary": guard.summary(),
-        "strength": _round(guard.strength),
-        "reliability": _round(guard.reliability),
-        "caution": _range_dict(guard.caution),
-        "words": guard.words,
-        "sentences": guard.sentences,
-        "readings": [_reading_dict(reading) for reading in guard.readings],
-        "deferred": list(guard.deferred),
-        "notes": list(guard.notes),
+        "summary": applied.summary(),
+        "strength": _round(applied.strength),
+        "reliability": _round(applied.reliability),
+        "caution": _range_dict(applied.caution),
+        "words": applied.words,
+        "sentences": applied.sentences,
+        "readings": [_reading_dict(reading) for reading in applied.readings],
+        "deferred": list(applied.deferred),
+        "notes": list(applied.notes),
     }
 
 

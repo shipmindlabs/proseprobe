@@ -23,7 +23,7 @@ from pathlib import Path
 
 from .calibrate import BANDS, DEFAULT_CONFIDENCE, Score, score
 from .guard import CAUTIONS
-from .report import DIGITS, REPORT_VERSION, report_score
+from .report import DIGITS, REPORT_VERSION, _calibration, report_score
 from .segment import split_words
 
 __all__ = [
@@ -153,6 +153,7 @@ class BatchReport:
         )
         return {
             "report_version": REPORT_VERSION,
+            "calibration": _calibration(),
             "headline": self.headline(),
             "confidence": self.confidence,
             "documents": len(self.documents),

@@ -292,12 +292,13 @@ from proseprobe import report
 print(json.dumps(report(text, name="essay.txt"), indent=2))
 ```
 
-A report carries a `report_version`, the `name` and `path` it was given, the
-`words` it was scored over, the `score` whole — the point value, the interval at
-its confidence, the band and every band the interval touches, each contribution
-with its reference means, its signed shift and the spans it was read from, the
-guard with each of its readings, and the notes — and the `explanation` as text.
-Nothing is summarised away, so a report can be argued with on its own.
+A report carries a `report_version`, the `calibration` block described under
+batch scoring, the `name` and `path` it was given, the `words` it was scored
+over, the `score` whole — the point value, the interval at its confidence, the
+band and every band the interval touches, each contribution with its reference
+means, its signed shift and the spans it was read from, the guard with each of
+its readings, and the notes — and the `explanation` as text. Nothing is
+summarised away, so a report can be argued with on its own.
 
 It accepts the same `confidence` as `score()` and the same `limit` and
 `excerpt_limit` as `explain()`. `report_score(result)` renders a `Score` already
@@ -377,6 +378,17 @@ moved the scores most by mean absolute shift, one line per document pointing at
 its report file, the files that could not be read as UTF-8 text, and notes in
 plain sentences. It ranks nothing and holds no threshold, so a batch of numbers
 does not become a batch of verdicts.
+
+Every document report and the batch summary carry the same `calibration` block:
+a `fingerprint`, which is the sha256 digest of canonical JSON over the reference
+distributions, the guard's signals, the bands, the cautions and the constants of
+the scale, and `note`, the provenance line `REFERENCE_NOTE` states. The
+fingerprint identifies the tables that were in force when the report was
+written; it says nothing about a corpus they were fitted to, because they are
+not fitted. Two reports with the same fingerprint were scored against the same
+tables, and replacing `REFERENCES` or moving a guard threshold changes it.
+`calibration_fingerprint()` returns it on its own, so a stored report can be
+checked against the tables you hold now.
 
 A file that cannot be read is named in `batch.unread` with the reason, and the
 rest of the batch is scored anyway.
