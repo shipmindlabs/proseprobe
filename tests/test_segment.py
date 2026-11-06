@@ -1,4 +1,14 @@
-from proseprobe import LineKind, split_lines, split_paragraphs, split_sentences, split_words
+from proseprobe import (
+    LineKind,
+    mask_protected,
+    protected_spans,
+    split_lines,
+    split_paragraphs,
+    split_sentences,
+    split_words,
+)
+
+FENCED = "Before.\n\n```python\ntotals = [1; 2];\n```\n\nAfter.\n"
 
 
 def test_words_are_alphabetic_tokens():
@@ -40,3 +50,39 @@ def test_list_items_stay_whole_without_end_punctuation():
 
 def test_paragraphs_split_on_blank_lines():
     assert len(split_paragraphs("One.\n\nTwo.\n\n\nThree.")) == 3
+
+
+def test_a_fenced_block_is_protected_from_its_opening_fence_to_its_closing_one():
+    spans = protected_spans(FENCED)
+    assert len(spans) == 1
+    assert spans[0].text.startswith("```python")
+    assert spans[0].text.endswith("```")
+
+
+def test_an_unclosed_fence_runs_to_the_end_of_the_text():
+    text = "Before.\n\n~~~\nstill code\n"
+    span = protected_spans(text)[0]
+    assert span.start == text.index("~~~")
+    assert span.end == len(text)
+
+
+def test_inline_code_and_urls_are_protected_without_trailing_punctuation():
+    text = "Call `run(x; y)` and read https://example.org/docs, then stop."
+    assert [span.text for span in protected_spans(text)] == [
+        "`run(x; y)`",
+        "https://example.org/docs",
+    ]
+
+
+def test_masking_keeps_the_offsets_and_the_sentence_ends():
+    masked = mask_protected(FENCED)
+    assert len(masked) == len(FENCED)
+    assert masked.count("\n") == FENCED.count("\n")
+    assert ";" not in masked
+    assert [span.text for span in split_sentences(masked)] == ["Before.", "After."]
+
+
+def test_prose_without_code_or_links_is_left_alone():
+    text = "One sentence. Another sentence."
+    assert protected_spans(text) == []
+    assert mask_protected(text) == text

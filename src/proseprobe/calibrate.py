@@ -154,6 +154,11 @@ def score_features(
     notes: list[str] = []
     if deferred:
         notes.append("Not counted, the text is shorter than they need: " + ", ".join(deferred) + ".")
+    protected = features.value("protected_word_count")
+    if protected > 0.0:
+        notes.append(
+            f"{int(protected)} words inside code and URLs were left out of every measurement."
+        )
     if not measured:
         notes.append("No calibrated feature could be measured, so the scale reports its prior.")
         notes.extend(language.notes)

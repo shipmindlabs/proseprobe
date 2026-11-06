@@ -9,10 +9,11 @@ trusted.
 Every signal is a row in ``SIGNALS`` with the value where it starts to count,
 the value where it counts fully, the weight it carries and the least text it
 needs, and the guard reports the word and sentence count the rates were computed
-over, so its own arithmetic can be checked. The scale uses the result to shrink
-its evidence toward the prior and widen its interval, so a caution can only make
-a score less certain, never larger. The guard names no language and makes no
-claim about the author.
+over, so its own arithmetic can be checked. The guard reads the text with code
+blocks, inline code and URLs masked out, as the features do. The scale uses the
+result to shrink its evidence toward the prior and widen its interval, so a
+caution can only make a score less certain, never larger. The guard names no
+language and makes no claim about the author.
 """
 
 from __future__ import annotations
@@ -22,7 +23,7 @@ from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
-from .segment import Span, split_sentences, split_words
+from .segment import Span, mask_protected, split_sentences, split_words
 
 __all__ = [
     "ARTICLES",
@@ -252,11 +253,12 @@ UNEXAMINED = Guard(
 
 def inspect_language(text: str) -> Guard:
     """Measure the non-native English signals in ``text`` and weigh them."""
-    words = split_words(text)
-    sentences = split_sentences(text)
+    masked = mask_protected(text)
+    words = split_words(masked)
+    sentences = split_sentences(masked)
     word_count = len(words)
     sentence_count = len(sentences)
-    measurements = _measure(text, words, sentences)
+    measurements = _measure(masked, words, sentences)
 
     readings: list[Reading] = []
     deferred: list[str] = []

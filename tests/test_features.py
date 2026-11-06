@@ -1,4 +1,4 @@
-from proseprobe import FEATURE_SPECS, extract_features
+from proseprobe import FEATURE_SPECS, extract_features, inspect_language, score, split_words
 
 UNIFORM = (
     "The system works well. The system runs fast. The system stays calm. "
@@ -17,6 +17,30 @@ STRUCTURED = (
     "- Ship it\n"
     "\n"
     "This takes a minute; it is, however, worth doing.\n"
+)
+PROSE = (
+    "Field notes\n"
+    "\n"
+    "We walked the river at dusk; nobody spoke for a while.\n"
+    "The water was low. A heron lifted off the far bank, and the dog froze.\n"
+    "Later we argued about the map and then agreed to disagree.\n"
+    "\n"
+    "The track climbs for a mile past the old weir, where the gravel gives way\n"
+    "to mud and the going slows. I hadn't brought the right boots, so the last\n"
+    "stretch was a matter of stubbornness rather than skill. A farmer waved from\n"
+    "a gate and told us the bridge had been out since the spring floods, which\n"
+    "explained the detour we had seen marked on a hand-drawn sign. We turned back\n"
+    "at the second bend, happy enough with what the afternoon had given us, and\n"
+    "the dog slept in the car all the way home.\n"
+)
+MIXED = PROSE + (
+    "\n"
+    "```python\n"
+    "totals = [alpha; beta; gamma];\n"
+    "print(totals); print(totals); print(totals);\n"
+    "```\n"
+    "\n"
+    "https://example.org/field-notes?ref=a;b;c\n"
 )
 
 
@@ -65,3 +89,26 @@ def test_empty_text_yields_zeroed_features():
     features = extract_features("")
     assert set(features) == set(FEATURE_SPECS)
     assert all(value == 0.0 for value in features.to_dict().values())
+
+
+def test_a_fenced_block_and_a_url_do_not_reach_the_measurements():
+    plain = extract_features(PROSE)
+    mixed = extract_features(MIXED)
+    for name in ("word_count", "sentence_count", "semicolon_rate", "comma_rate"):
+        assert mixed.value(name) == plain.value(name)
+    assert inspect_language(PROSE).readings
+    assert inspect_language(MIXED).readings == inspect_language(PROSE).readings
+
+
+def test_the_words_left_out_are_counted():
+    masked_tokens = len(split_words(MIXED)) - len(split_words(PROSE))
+    assert masked_tokens > 0
+    assert extract_features(MIXED).value("protected_word_count") == masked_tokens
+    assert extract_features(PROSE).value("protected_word_count") == 0.0
+
+
+def test_the_score_notes_how_many_words_it_left_out():
+    count = int(extract_features(MIXED).value("protected_word_count"))
+    note = f"{count} words inside code and URLs were left out of every measurement."
+    assert note in score(MIXED).notes
+    assert not [line for line in score(PROSE).notes if "left out of every measurement" in line]

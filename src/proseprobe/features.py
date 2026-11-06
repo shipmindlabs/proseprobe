@@ -3,6 +3,10 @@
 Every feature has a stable name, a unit, a one-line description and, where the
 measurement points at specific prose, the quoted spans it was read from. These
 are measurements; none of them is a verdict.
+
+Code and links are not prose, so fenced code blocks, inline code and URLs are
+masked out before anything is measured, and the word tokens they held are
+reported as ``protected_word_count`` rather than dropped in silence.
 """
 
 from __future__ import annotations
@@ -13,7 +17,16 @@ from collections import Counter
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 
-from .segment import LineKind, Span, split_lines, split_paragraphs, split_sentences, split_words
+from .segment import (
+    LineKind,
+    Span,
+    mask_protected,
+    protected_spans,
+    split_lines,
+    split_paragraphs,
+    split_sentences,
+    split_words,
+)
 
 __all__ = [
     "DISCOURSE_MARKERS",
@@ -114,6 +127,7 @@ FEATURES: tuple[FeatureSpec, ...] = tuple(
         ("list_item_ratio", "ratio", "Share of non-blank lines that are list items."),
         ("list_item_length_cv", "ratio", "Coefficient of variation of list item lengths; near zero means templated items."),
         ("heading_ratio", "ratio", "Share of non-blank lines that are headings."),
+        ("protected_word_count", "words", "Word tokens inside fenced code blocks, inline code and URLs, which were masked out before every other measurement."),
     )
 )
 
@@ -158,10 +172,12 @@ class FeatureSet(Mapping[str, Feature]):
 
 def extract_features(text: str) -> FeatureSet:
     """Measure every documented stylometric feature of ``text``."""
-    lines = split_lines(text)
-    sentences = split_sentences(text)
-    paragraphs = split_paragraphs(text)
-    words = split_words(text)
+    protected = protected_spans(text)
+    masked = mask_protected(text) if protected else text
+    lines = split_lines(masked)
+    sentences = split_sentences(masked)
+    paragraphs = split_paragraphs(masked)
+    words = split_words(masked)
 
     word_count = len(words)
     sentence_count = len(sentences)
@@ -278,7 +294,19 @@ def extract_features(text: str) -> FeatureSet:
     add("list_item_length_cv", item_cv, item_quotes)
     add("heading_ratio", line_share(len(headings)), tuple(line.span.quote() for line in headings[:3]))
 
+    add("protected_word_count", _protected_words(text, protected))
+
     return FeatureSet(collected)
+
+
+def _protected_words(text: str, spans: Sequence[Span]) -> int:
+    if not spans:
+        return 0
+    return sum(
+        1
+        for word in split_words(text)
+        if any(span.start <= word.start < span.end for span in spans)
+    )
 
 
 def _extreme_sentences(sentences: Sequence[Span], lengths: Sequence[int]) -> tuple[str, ...]:

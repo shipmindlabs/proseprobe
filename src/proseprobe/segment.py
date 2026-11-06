@@ -2,6 +2,11 @@
 
 Every segment carries its character offsets into the original text, so a feature
 can quote the exact span that produced it instead of paraphrasing it.
+
+Code and links are not prose. ``protected_spans`` finds the fenced code blocks,
+the inline code and the URLs in a text, and ``mask_protected`` blanks them out
+with spaces, which keeps every offset and line break in place so the surrounding
+prose segments exactly as it did before.
 """
 
 from __future__ import annotations
@@ -15,6 +20,8 @@ __all__ = [
     "Line",
     "LineKind",
     "Span",
+    "mask_protected",
+    "protected_spans",
     "split_lines",
     "split_paragraphs",
     "split_sentences",
@@ -28,6 +35,11 @@ _ATX_HEADING_RE = re.compile(r"^\s{0,3}#{1,6}\s+\S")
 _RULE_RE = re.compile(r"^\s{0,3}(?:=+|-{2,}|\*{3,}|_{3,})\s*$")
 _LIST_RE = re.compile(r"^\s{0,8}(?:[-*+\u2022]|\(?\d{1,3}[.)]|\(?[a-zA-Z][.)])\s+\S")
 _PARAGRAPH_BREAK_RE = re.compile(r"\n[ \t]*\n\s*")
+
+_FENCE_RE = re.compile(r"^[ \t]{0,3}(`{3,}|~{3,})[^\n]*$", re.MULTILINE)
+_INLINE_CODE_RE = re.compile(r"`[^`\n]*`")
+_URL_RE = re.compile(r"\b(?:https?://|www\.)\S+", re.IGNORECASE)
+_URL_TRAILING = ".,;:!?)"
 
 _ABBREVIATIONS = frozenset(
     {
@@ -91,6 +103,65 @@ def _trimmed(text: str, start: int, end: int) -> Span | None:
 def split_words(text: str) -> list[Span]:
     """Alphabetic word tokens; bare digits and symbols are not words."""
     return [Span(m.start(), m.end(), m.group(0)) for m in WORD_RE.finditer(text)]
+
+
+def protected_spans(text: str) -> list[Span]:
+    """Fenced code blocks, inline code and URLs, in source order.
+
+    A fence runs from the line that opens it to its closing fence, or to the end
+    of the text if it is never closed. A URL leaves its trailing ``.,;:!?)`` out
+    of the span, since those belong to the sentence around it.
+    """
+    spans = _fenced_spans(text)
+    for match in _INLINE_CODE_RE.finditer(text):
+        _collect(spans, text, match.start(), match.end())
+    for match in _URL_RE.finditer(text):
+        end = match.end()
+        while end > match.start() and text[end - 1] in _URL_TRAILING:
+            end -= 1
+        _collect(spans, text, match.start(), end)
+    spans.sort(key=lambda span: span.start)
+    return spans
+
+
+def mask_protected(text: str) -> str:
+    """``text`` with every protected span blanked out, newlines left in place."""
+    spans = protected_spans(text)
+    if not spans:
+        return text
+    pieces: list[str] = []
+    cursor = 0
+    for span in spans:
+        pieces.append(text[cursor : span.start])
+        pieces.append("".join("\n" if char == "\n" else " " for char in span.text))
+        cursor = span.end
+    pieces.append(text[cursor:])
+    return "".join(pieces)
+
+
+def _collect(spans: list[Span], text: str, start: int, end: int) -> None:
+    if start >= end or any(span.start < end and start < span.end for span in spans):
+        return
+    spans.append(Span(start, end, text[start:end]))
+
+
+def _fenced_spans(text: str) -> list[Span]:
+    spans: list[Span] = []
+    position = 0
+    while (opener := _FENCE_RE.search(text, position)) is not None:
+        closer = _closing_fence(text, opener.end(), opener.group(1))
+        end = len(text) if closer is None else closer
+        spans.append(Span(opener.start(), end, text[opener.start() : end]))
+        position = end
+    return spans
+
+
+def _closing_fence(text: str, position: int, opener: str) -> int | None:
+    pattern = re.compile(
+        rf"^[ \t]{{0,3}}{re.escape(opener[0])}{{{len(opener)},}}[ \t]*$", re.MULTILINE
+    )
+    match = pattern.search(text, position)
+    return None if match is None else match.end()
 
 
 def split_paragraphs(text: str) -> list[Span]:
