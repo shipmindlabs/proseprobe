@@ -213,13 +213,14 @@ point at a non-native author and reports how far the score should be trusted. It
 names no language and makes no claim about the author.
 
 `inspect_language(text)` returns a `Guard` on its own, and `score(text)` runs it
-and carries it on `result.guard`. Each signal becomes a `Reading` with its
-measured value and unit, the value where it starts to count, the value where it
-counts fully, its `strength` between those two and the quoted spans it was read
-from. `guard.strength` is the weighted mean of those strengths over all signals,
-`guard.reliability` is what is left of 1, `guard.caution` names the stretch the
-strength falls in, and `guard.words` and `guard.sentences` give the denominator
-the rates were computed over.
+and carries it on `result.guard`. It reads the text with code blocks, inline
+code and URLs masked out, as the features do. Each signal becomes a `Reading`
+with its measured value and unit, the value where it starts to count, the value
+where it counts fully, its `strength` between those two and the quoted spans it
+was read from. `guard.strength` is the weighted mean of those strengths over all
+signals, `guard.reliability` is what is left of 1, `guard.caution` names the
+stretch the strength falls in, and `guard.words` and `guard.sentences` give the
+denominator the rates were computed over.
 
 | signal | unit | starts to count | counts fully | weight |
 | --- | --- | --- | --- | --- |
@@ -398,7 +399,7 @@ rest of the batch is scored anyway.
 `proseprobe.REFERENCES` is the table the scale is calibrated against: one row per
 indicator feature with its mean and standard deviation in each reference
 population, a weight, the minimum text it needs and a note on what it reflects.
-`proseprobe.REFERENCE_NOTE` states their provenance. Sixteen of the twenty-seven
+`proseprobe.REFERENCE_NOTE` states their provenance. Sixteen of the twenty-eight
 measured features have a row; the rest are reported but do not move the score, so
 an uncalibrated feature is a missing row rather than a hidden term.
 
@@ -419,10 +420,28 @@ Punctuation habits: `comma_rate`, `semicolon_rate`, `colon_rate`, `dash_rate`,
 
 Layout: `list_item_ratio`, `list_item_length_cv`, `heading_ratio`.
 
+What was left out: `protected_word_count`.
+
 The authoritative definitions live in `proseprobe.FEATURES`, a tuple of
 `FeatureSpec` entries with a name, a unit and a description. A feature that is
 not in that tuple cannot be produced, so a missing measurement is a missing row
 rather than a silent gap.
+
+## Code and links are not prose
+
+Fenced code blocks, inline code between single backticks and URLs are masked out
+before anything is measured, so a semicolon-heavy snippet or a query string does
+not read as punctuation habit. `protected_spans(text)` returns those spans with
+their offsets, and `mask_protected(text)` replaces every non-newline character
+inside them with a space, which keeps the offsets and the line breaks in place so
+the surrounding prose segments exactly as it did before. A fence runs from the
+line that opens it to its closing fence, or to the end of the text if it is never
+closed, and a URL leaves its trailing `.,;:!?)` to the sentence around it.
+
+The word tokens inside those spans are reported as `protected_word_count` rather
+than dropped in silence, and `score()` says so in its notes whenever the count is
+above zero. Quotation marks around inline quotations are left alone, since
+`quote_rate` is calibrated on them.
 
 ## Development
 
