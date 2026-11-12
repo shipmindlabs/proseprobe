@@ -335,7 +335,7 @@ def _measure(
     connectives = sum(1 for word in lowered if word in FORMAL_CONNECTIVES)
     contractions = len(_CONTRACTION_RE.findall(text))
     transfers = len(_PATTERN_RE.findall(text))
-    foreign = sum(1 for word in lowered if not word.isascii())
+    foreign = sum(1 for word in lowered if _holds_foreign_letter(word))
 
     return {
         "article_rate": (rate(articles, 100.0), _articleless_quotes(sentences)),
@@ -351,6 +351,15 @@ def _measure(
         ),
         "foreign_letter_rate": (rate(foreign, 100.0), _foreign_quotes(sentences)),
     }
+
+
+def _holds_foreign_letter(word: str) -> bool:
+    """Whether ``word`` carries a letter outside ASCII.
+
+    Typographic punctuation such as the apostrophe in didn\u2019t is not a letter, so
+    autocorrected English does not read as another orthography.
+    """
+    return any(char.isalpha() and not char.isascii() for char in word)
 
 
 def _articleless_quotes(sentences: Sequence[Span], limit: int = 2) -> tuple[str, ...]:
@@ -402,7 +411,7 @@ def _quotes_matching(
 def _foreign_quotes(sentences: Sequence[Span], limit: int = 2) -> tuple[str, ...]:
     picked: list[str] = []
     for span in sentences:
-        if any(not word.text.isascii() for word in split_words(span.text)):
+        if any(_holds_foreign_letter(word.text) for word in split_words(span.text)):
             picked.append(span.quote())
         if len(picked) == limit:
             break

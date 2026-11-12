@@ -43,6 +43,15 @@ NATIVE = (
     "slightly torn, and it is still the best record we have of what we decided."
 )
 
+ASCII_TYPOGRAPHY = NATIVE + ' Priya said, "the napkin is the record," and nobody argued.'
+TYPOGRAPHIC = NATIVE.replace("'", "\u2019") + (
+    " Priya said, \u201cthe napkin is the record,\u201d and nobody argued."
+)
+
+
+def _reading(guard, name):
+    return next(reading for reading in guard.readings if reading.name == name)
+
 
 def test_native_prose_raises_no_caution():
     guard = inspect_language(NATIVE)
@@ -52,6 +61,25 @@ def test_native_prose_raises_no_caution():
     assert guard.fired() == ()
     assert guard.deferred == ()
     assert any("stood out" in note for note in guard.notes)
+
+
+def test_typographic_quotes_and_apostrophes_score_like_their_ascii_forms():
+    plain = score(ASCII_TYPOGRAPHY)
+    curled = score(TYPOGRAPHIC)
+    assert curled.value == plain.value
+    assert (curled.low, curled.high) == (plain.low, plain.high)
+    assert curled.guard.strength == plain.guard.strength
+    assert _reading(inspect_language(TYPOGRAPHIC), "foreign_letter_rate").value == 0.0
+
+
+def test_a_token_with_a_non_ascii_letter_still_counts_as_foreign():
+    guard = inspect_language(
+        TYPOGRAPHIC + " We met in Z\u00fcrich and later in M\u00fcnchen that spring."
+    )
+    reading = _reading(guard, "foreign_letter_rate")
+    assert reading.value > 0.0
+    assert reading.strength > 0.0
+    assert reading.evidence
 
 
 def test_non_native_patterns_raise_a_caution():

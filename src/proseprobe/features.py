@@ -6,7 +6,9 @@ are measurements; none of them is a verdict.
 
 Code and links are not prose, so fenced code blocks, inline code and URLs are
 masked out before anything is measured, and the word tokens they held are
-reported as ``protected_word_count`` rather than dropped in silence.
+reported as ``protected_word_count`` rather than dropped in silence. Typographic
+quotes and apostrophes are folded to their ASCII forms before the punctuation
+features are counted, so autocorrected prose measures as the prose it is.
 """
 
 from __future__ import annotations
@@ -86,6 +88,9 @@ _DASH_RE = re.compile(r"[\u2014\u2013]|(?<=\s)-{1,2}(?=\s)")
 _ELLIPSIS_RE = re.compile(r"\u2026|\.{3,}")
 _QUOTE_CHARS = "\"\u201c\u201d\u00ab\u00bb"
 _PUNCTUATION_MARKS = (".", ",", ";", ":", "!", "?", "(", "\u2014", "\u2013", "\u2026", "\"", "'")
+_TYPOGRAPHIC_FOLDING = str.maketrans(
+    {"\u2018": "'", "\u2019": "'", "\u201c": "\"", "\u201d": "\""}
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,7 +124,7 @@ FEATURES: tuple[FeatureSpec, ...] = tuple(
         ("semicolon_rate", "per 100 words", "Semicolons per 100 words."),
         ("colon_rate", "per 100 words", "Colons per 100 words, with list and heading markers removed first."),
         ("dash_rate", "per 100 words", "Em dashes, en dashes and spaced hyphens per 100 words."),
-        ("quote_rate", "per 100 words", "Quotation pairs per 100 words."),
+        ("quote_rate", "per 100 words", "Quotation pairs per 100 words; typographic quotes count as their ASCII forms."),
         ("ellipsis_rate", "per 100 words", "Ellipses per 100 words."),
         ("question_ratio", "ratio", "Share of sentences containing a question mark."),
         ("exclamation_ratio", "ratio", "Share of sentences containing an exclamation mark."),
@@ -183,7 +188,9 @@ def extract_features(text: str) -> FeatureSet:
     sentence_count = len(sentences)
     lowered = [word.text.lower() for word in words]
     lengths = [len(split_words(sentence.text)) for sentence in sentences]
-    body = "\n".join(_MARKER_RE.sub("", sentence.text) for sentence in sentences)
+    body = "\n".join(
+        _MARKER_RE.sub("", sentence.text) for sentence in sentences
+    ).translate(_TYPOGRAPHIC_FOLDING)
 
     collected: list[Feature] = []
 
@@ -260,7 +267,7 @@ def extract_features(text: str) -> FeatureSet:
     add(
         "quote_rate",
         per_100_words(sum(body.count(char) for char in _QUOTE_CHARS) / 2.0),
-        _quotes_containing(sentences, _QUOTE_CHARS[0]),
+        _quotes_containing_any(sentences, _QUOTE_CHARS),
     )
     add(
         "ellipsis_rate",
@@ -331,6 +338,16 @@ def _quotes_by_length(
 
 def _quotes_containing(sentences: Sequence[Span], needle: str, limit: int = 2) -> tuple[str, ...]:
     return tuple(span.quote() for span in sentences if needle in span.text)[:limit]
+
+
+def _quotes_containing_any(
+    sentences: Sequence[Span], needles: str, limit: int = 2
+) -> tuple[str, ...]:
+    return tuple(
+        span.quote()
+        for span in sentences
+        if any(needle in span.text for needle in needles)
+    )[:limit]
 
 
 def _quotes_matching(sentences: Sequence[Span], pattern: re.Pattern[str], limit: int = 2) -> tuple[str, ...]:

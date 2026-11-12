@@ -42,6 +42,12 @@ MIXED = PROSE + (
     "\n"
     "https://example.org/field-notes?ref=a;b;c\n"
 )
+CURLY = (
+    "She said, \u201cthe map is wrong,\u201d and we believed her. "
+    "It wasn\u2019t wrong, though; the path had simply moved. "
+    "Nobody mentioned the detour again."
+)
+STRAIGHT = CURLY.replace("\u201c", '"').replace("\u201d", '"').replace("\u2019", "'")
 
 
 def test_every_feature_is_named_and_documented():
@@ -78,6 +84,14 @@ def test_punctuation_and_layout_features():
     assert features.value("comma_rate") > 0.0
     assert features.value("discourse_marker_rate") > 0.0
     assert features["list_item_ratio"].evidence
+
+
+def test_typographic_punctuation_is_measured_like_its_ascii_form():
+    curly = extract_features(CURLY)
+    straight = extract_features(STRAIGHT)
+    assert curly["quote_rate"].evidence
+    assert curly.value("quote_rate") == straight.value("quote_rate") > 0.0
+    assert curly.value("punctuation_diversity") == straight.value("punctuation_diversity")
 
 
 def test_templated_list_items_have_low_length_variation():
